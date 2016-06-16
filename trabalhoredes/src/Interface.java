@@ -16,6 +16,8 @@ public class Interface {
     
     public static void main(String args[]) throws Exception {
         
+        boolean transferenciaCompleta = false;
+        
         Cliente cliente = new Cliente();
         
         Scanner input = new Scanner (System.in);
@@ -30,7 +32,7 @@ public class Interface {
         cliente.preparaArquivo(caminhoArquivo);
         
         while(!transferenciaCompleta){
-            for 
+            
         }
         
         
