@@ -25,10 +25,10 @@ public class Cliente {
     
     static final int tamanho_pacote = 1000;
     static final int porta_servidor = 8002;
-    static final int janela_congestionamento = 10;
+    
     static final int timeout_time = 500;
     
-    
+    int janela_congestionamento;
     int nSeqAtual; //numero de sequencia atual
     int proxNseq; //prox numero de sequencia da janela
     String caminhoArquivo; //caminho do arquivo a ser enviado
@@ -46,8 +46,7 @@ public class Cliente {
         this.caminhoArquivo = caminhoArquivo;
         this.nomeArquivo = nomeArquivo;
         listaDePacotes = new ArrayList<byte[]>(janela_congestionamento);
-        
-        
+          
     }
     
     //constroi o pacote com as informações do cabeçalho
@@ -60,7 +59,20 @@ public class Cliente {
 	return pktBuf.array();
     }
     
-    public void pktout(){
+    //se for o primeiro pacote do conjunto, acrescenta as informações do arquivo
+    
+    public void preparaArquivo(FileInputStream fileInputStream, byte[] sendData) throws IOException{
+        byte[] nomeArquivoB = nomeArquivo.getBytes();
+        byte[] tamanhoNomeArquivoB = ByteBuffer.allocate(4).putInt(nomeArquivo.length()).array();
+        byte[] bufferArquivo = new byte [tamanho_pacote];
+        int tamanhoArquivo = fileInputStream.read(bufferArquivo, 0, tamanho_pacote - 4 - nomeArquivoB.length);
+        byte[] ArquivoB = Arrays.copyOfRange(bufferArquivo, 0, tamanhoArquivo);
+        ByteBuffer bb = ByteBuffer.allocate(4 + nomeArquivoB.length + ArquivoB.length);
+        bb.put(tamanhoNomeArquivoB); bb.put(nomeArquivoB); bb.put(ArquivoB);
+        sendData = geraPacote(proxNseq, bb.array());
+    }
+    
+    public void main (String args[]){
         try{
             InetAddress IpAddress = InetAddress.getLocalHost();
             FileInputStream fileInputStream = new FileInputStream(new File(caminhoArquivo));
@@ -72,7 +84,7 @@ public class Cliente {
                    
                     if (nSeqAtual == proxNseq) setTimer(true); //primeiro pacote inicia o timer
                     
-                    byte[] sendData = new byte[10];
+                    byte[] sendData = new byte[tamanho_janela];
                     boolean ultimoNseq = false;
                     
                     //se o pacote estiver na lista de pacotes pega ele na lista de pacotes
@@ -81,14 +93,7 @@ public class Cliente {
                     }else{
                         //se for o primeiro pacote do conjunto, acrescenta as informações do arquivo
                         if(proxNseq == 0){
-                            byte[] nomeArquivoB = nomeArquivo.getBytes();
-                            byte[] tamanhoNomeArquivoB = ByteBuffer.allocate(4).putInt(nomeArquivo.length()).array();
-                            byte[] bufferArquivo = new byte [tamanho_pacote];
-                            int tamanhoArquivo = fileInputStream.read(bufferArquivo, 0, tamanho_pacote - 4 - nomeArquivoB.length);
-                            byte[] ArquivoB = Arrays.copyOfRange(bufferArquivo, 0, tamanhoArquivo);
-                            ByteBuffer bb = ByteBuffer.allocate(4 + nomeArquivoB.length + ArquivoB.length);
-                            bb.put(tamanhoNomeArquivoB); bb.put(nomeArquivoB); bb.put(ArquivoB);
-                            sendData = geraPacote(proxNseq, bb.array());
+                            preparaArquivo(fileInputStream, sendData);
                         }else{
                             byte[] bufferArquivo = new byte[tamanho_pacote];
                             int tamanhoArquivo = fileInputStream.read(bufferArquivo, 0, tamanho_pacote);
@@ -103,6 +108,7 @@ public class Cliente {
                         listaDePacotes.add(sendData);
                     }
                     //mandar pacote
+                    
                     
                     //atualizar variavel 'proxNseq'
                 }

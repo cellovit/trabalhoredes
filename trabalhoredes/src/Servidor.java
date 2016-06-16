@@ -16,7 +16,7 @@ public class Servidor {
     
     static final int tamanho_pacote = 1000;
     static final int porta_servidor = 8002;
-    static final int janela_congestionamento = 10;
+    
     static final int timeout_time = 500;
     
     public Servidor (int porta_s1, int porta_s2, String dir){
@@ -35,9 +35,16 @@ public class Servidor {
         
     }
     
-    
-    public void pktin(){
+    public static void main(String args[]) throws Exception{
         
+        DatagramSocket serverSocket = new DatagramSocket(porta_servidor);
+        byte[] receiveData = new byte[tamanho_pacote];
+        byte[] sendData = new byte[tamanho_pacote];
+        
+        while(true){
+            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+        }
     }
+    
     
 }
