@@ -25,31 +25,23 @@ public class Interface {
         
         boolean transferenciaCompleta = false;
         int ssthresh = 16;
-        int tamanhoJanela = 1;
+        int tamanhoJanela = 10;
         
         Cliente cliente = new Cliente();
         int nSeqAtualCliente = cliente.getnSeqAtual();
         
         Scanner input = new Scanner (System.in);
         // Resolução de nome de host.
-        InetAddress IPAddress = InetAddress.getByName("hostname");
+        InetAddress IPAddress = InetAddress.getLocalHost();
         
         System.out.println("Insira o caminho do arquivo que deseja enviar");
         String caminhoArquivo = input.nextLine();
         
         byte[] bufferArquivo = cliente.preparaArquivo(caminhoArquivo);
         
-        while(!transferenciaCompleta){
-            for (int i = cliente.getnSeqAtual(); i < tamanhoJanela; i++){
-                System.out.println("Enviando pacote com numero de sequencia : " + nSeqAtualCliente);
-                cliente.enviaPacote(cliente.preparaPacote(nSeqAtualCliente, bufferArquivo), IPAddress, i);
-            }
-            if (tamanhoJanela < ssthresh){
-                tamanhoJanela *= 2;
-            }
-            nSeqAtualCliente++;
+        for (int i = 0; i < bufferArquivo.length; i++){
+            System.out.println(bufferArquivo[i]);
         }
-        
         
     }
     
