@@ -17,29 +17,11 @@ public class Servidor {
     
     static final int porta_servidor = 8002;
     static final int tamanho_pacote = 1000;
+    int nSeqEsperado;
+    int ACK;
     
     public void recebeArquivo(String caminhoArquivo){
         
         if(!new File(caminhoArquivo).exists())  new File(caminhoArquivo).mkdirs();
     }
-    
-    public static void main(String args[]) throws Exception{
-        
-        DatagramSocket serverSocket = new DatagramSocket(porta_servidor);
-        byte[] receiveData = new byte[tamanho_pacote];
-        byte[] sendData = new byte[tamanho_pacote];
-        
-        while(true){
-            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-            serverSocket.receive(receivePacket);
-            
-            InetAddress IPAddress = receivePacket.getAddress();
-            int port = receivePacket.getPort();
-            
-            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port);
-            // Envio em si do datagrama.
-            serverSocket.send(sendPacket);
-        }
-    }
-    
 }
