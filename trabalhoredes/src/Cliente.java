@@ -1,7 +1,9 @@
 
+
 import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Scanner;
 import java.util.Timer;
@@ -19,7 +21,11 @@ public class Cliente {
 
     public Cliente() {
     }
-
+    
+    public void recebeAck (){
+        
+    }
+    
     //public FileOutputStream preparaArquivo2(String caminhoArquivo){
     public byte[] preparaArquivo(String caminhoArquivo) throws IOException {
 
@@ -34,7 +40,7 @@ public class Cliente {
         byte[] nomeArquivoB = nomeArquivo.getBytes();
         byte[] tamanhoNomeArquivoB = ByteBuffer.allocate(4).putInt(nomeArquivo.length()).array();
         byte[] bufferArquivo = new byte[bytesArquivo];
-        //int tamanhoArquivo = fis.read(bufferArquivo, 0, tamanhoPacote - 4 - nomeArquivoB.length);
+        
         byte[] ArquivoB = Arrays.copyOfRange(bufferArquivo, 0, bytesArquivo);
         ByteBuffer bb = ByteBuffer.allocate(4 + nomeArquivoB.length + ArquivoB.length);
         bb.put(tamanhoNomeArquivoB);
@@ -44,11 +50,7 @@ public class Cliente {
         return bb.array();
 
     }
-
-    //prepara um pacote do tamanho da janela com o numero de sequencia atual
-    //public DatagramPacket preparaPacote(int nSeq, byte[] sendData, InetAddress IPAddress) {
-
-
+    
     public int getnSeqAtual() {
         return nSeqAtual;
     }
@@ -69,7 +71,7 @@ public class Cliente {
         }
         
         //insere os dados
-        for (int i = 0; i < sendDataArray.length; i++){
+        for (int i = nSeqBytes.length; i < sendDataArray.length; i++){
             data[i] = sendData[i];
         }
         
@@ -81,5 +83,51 @@ public class Cliente {
         
         DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, portaServidor);
         return p;
+    }
+    
+    public static void main(String args[]) throws Exception {
+
+        ArrayList<DatagramPacket> listaPacotes = new ArrayList<DatagramPacket>();
+        int nSeqAtual = 0;
+        boolean transferenciaCompleta = false;
+        //int ssthresh = 16;
+        int tamanhoJanela = 10;
+        int nSeq = 0;
+        int bytesLidos = 0;
+        
+        Cliente cliente = new Cliente();
+        Scanner input = new Scanner(System.in);
+        InetAddress IPAddress = InetAddress.getLocalHost();
+
+        System.out.println("Insira o caminho do arquivo que deseja enviar");
+        String caminhoArquivoUpload = input.nextLine();
+        byte[] bufferArquivo = cliente.preparaArquivo(caminhoArquivoUpload);
+        System.out.println("tamanho do Arquivo + informações : " + bufferArquivo.length);
+        
+        DatagramSocket Cliente = new DatagramSocket();
+        
+        int bytesRestantes = bufferArquivo.length;
+        while (bytesLidos < bufferArquivo.length) {
+
+            byte[] data = new byte[tamanhoPacote];
+            for (int i = 0; i < tamanhoPacote; i++) {
+                data[i] = bufferArquivo[i];
+                bytesLidos++;
+                bytesRestantes--;
+                if (bytesRestantes == 0) {
+                    break;
+                }
+            }
+
+            System.out.println("bytes lidos : " + bytesLidos);
+            System.out.println("bytes restantes : " + bytesRestantes);
+            //????? o numero de sequencia atual deve ser o numero de bytes lidos ?
+
+            Cliente.setSoTimeout(timeoutTime);
+            Cliente.send(cliente.preparaPacote(IPAddress, nSeq, data));
+            System.out.println("pacote " + nSeq + " enviado");
+            nSeq = bytesLidos; 
+        }
+        Cliente.close();
     }
 }
