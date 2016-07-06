@@ -16,91 +16,84 @@ import java.util.Scanner;
  */
 public class Servidor {
 
-    static final int portaServidor = 8002;
-    static final int tamanhoPacote = 1000;
-
-    int ultimoNSeq = -1;
-    int nSeqEsperado = 0;
-    FileOutputStream fos = null;
-    byte[] data = new byte[tamanhoPacote];
-    
+    static final int PORTASERVIDOR = 8002;
+    static final int TAMANHOPACOTE = 1000;
 
     public Servidor() {
 
     }
 
-    public void recebePacote(InetAddress IPAddress) throws IOException {
-        ServerSocket s = new ServerSocket (portaServidor);
-        DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, portaServidor);
-        while (true) {
-            //DatagramSocket s = new DatagramSocket(portaServidor);
-            System.out.println("accept");
-            //s.accept();
-            //s.bind(s.getLocalSocketAddress());
-            data = p.getData();
-            int nSeq = ByteBuffer.wrap(data, 0, 4).getInt();
-
-            if (nSeqEsperado == nSeq) {
-                try {
-                    // primeiro pacote
-                    if ((ultimoNSeq == -1) && (nSeqEsperado == 0)) {
-
-                        Scanner input = new Scanner(System.in);
-                        System.out.println("Insira onde deseja salvar o arquivo");
-                        String caminhoArquivo = input.nextLine();
-
-                        if (!new File(caminhoArquivo).exists()) {
-                            new File(caminhoArquivo).mkdirs();
-                        }
-
-                        int tamanhoNomeArquivo = ByteBuffer.wrap(data, 0, 4).getInt();
-                        String nomeArquivo = ByteBuffer.wrap(data, 4, 4 + tamanhoNomeArquivo).toString();
-                        System.out.println("Servidor -> Nome do arquivo : " + nomeArquivo);
-
-                        File f = new File(caminhoArquivo + nomeArquivo);
-                        if (!f.exists()) {
-                            f.createNewFile();
-                        }
-
-                        //dados iniciais
-                        fos = new FileOutputStream(f);
-                        fos.write(data, 4 + tamanhoNomeArquivo, p.getLength() - 4 - tamanhoNomeArquivo);
-
-                        ultimoNSeq = nSeq;
-                        nSeqEsperado += p.getLength();
-                        enviaAck(nSeq, IPAddress);
-                    } else {
-                        fos.write(data);
-                        enviaAck(nSeq, IPAddress);
-                        ultimoNSeq = nSeq;
-                        nSeqEsperado += p.getLength();
-                    }
-
-                } catch (SocketException e1) {
-                    e1.printStackTrace();
-                }
-            } else {//gera ACK duplicado
-                enviaAck(ultimoNSeq, IPAddress);
-
-            }
-        }
-    }
-
-    public void enviaAck(int ack, InetAddress IPAddress) throws IOException {
+    public static void enviaAck(int ack, InetAddress IPAddress) throws IOException {
         byte[] ackBytes = ByteBuffer.allocate(4).putInt(ack).array();
 
-        DatagramPacket p = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, portaServidor);
+        DatagramPacket p = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, PORTASERVIDOR);
         try {
-            DatagramSocket s = new DatagramSocket(portaServidor);
+            DatagramSocket s = new DatagramSocket();
             s.send(p);
         } catch (SocketException e1) {
             e1.printStackTrace();
         }
 
-        System.out.println("Servidor -> ACK " + ack + "enviado");
+        System.out.println("Servidor -> ACK " + ack + " enviado");
     }
-    
-    public static void main(String args[]) throws Exception {
+
+    public static void main(String args[]) throws UnknownHostException, SocketException, IOException {
+
+        InetAddress IPAddress = InetAddress.getLocalHost();
+        int ultimoNSeq = -1;
+        int nSeqEsperado = 0;
+        FileOutputStream fos = null;
+        byte[] data = new byte[TAMANHOPACOTE];
+
+        while (true) {
+            DatagramSocket s = new DatagramSocket(PORTASERVIDOR);
+            DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, PORTASERVIDOR);
+
+            s.receive(p);
+
+            data = p.getData();
+            int nSeq = ByteBuffer.wrap(data, 0, 4).getInt();
+            System.out.println("pacote " + nSeq + " recebido");
+
+            if (nSeqEsperado == nSeq) {
+
+                // primeiro pacote
+                if ((ultimoNSeq == -1) && (nSeqEsperado == 0)) {
+
+                    Scanner input = new Scanner(System.in);
+                    System.out.println("Insira onde deseja salvar o arquivo");
+                    String caminhoArquivo = input.nextLine();
+
+                    if (!new File(caminhoArquivo).exists()) {
+                        new File(caminhoArquivo).mkdirs();
+                    }
+                    
+                    System.out.println("Insira o nome do arquivo a ser criado ..");
+                    String nomeArquivo = input.nextLine();
+                    //System.out.println("Servidor -> Nome do arquivo : " + nomeArquivo);
+
+                    File f = new File(caminhoArquivo + nomeArquivo);
+                    if (!f.exists()) {
+                        f.createNewFile();
+                    }
+
+                    //dados iniciais
+                    fos = new FileOutputStream(f);
+                    
+                    fos.write(data, 4, p.getLength() - 4);
+
+                    ultimoNSeq = nSeq;
+                    nSeqEsperado += p.getLength();
+                    enviaAck(nSeq + nSeqEsperado, IPAddress);
+                } else {
+                    fos.write(data);
+                    ultimoNSeq = nSeq;
+                    nSeqEsperado += p.getLength();
+                    enviaAck(nSeq + nSeqEsperado, IPAddress);
+                }
+            }
+            s.close();
+        }
         
     }
 }

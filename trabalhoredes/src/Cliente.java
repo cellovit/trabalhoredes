@@ -11,18 +11,32 @@ import java.util.TimerTask;
 
 public class Cliente {
 
-    static final int portaServidor = 8002;
+    static final int PORTASERVIDOR = 8002;
     static final int timeoutTime = 200;
-    static final int tamanhoPacote = 1000;
+    static final int TAMANHOPACOTE = 1000;
     static final int tamanhoJanela = 5;
     int nSeqAtual = 0;
     boolean ultimoNseq = false;
     Timer timer;
+    
+    
 
     public Cliente() {
     }
     
-    public void recebeAck (){
+    public static void recebeAck () throws SocketException, UnknownHostException, IOException{
+        InetAddress IPAddress = InetAddress.getLocalHost();
+        byte[] data = new byte[TAMANHOPACOTE];
+        
+        DatagramSocket s = new DatagramSocket();
+        DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, PORTASERVIDOR);
+
+        s.receive(p);
+
+        data = p.getData();
+        int ACK = ByteBuffer.wrap(data, 0, 4).getInt();
+        
+        System.out.println("ACK " + ACK + " recebido");
         
     }
     
@@ -32,19 +46,16 @@ public class Cliente {
         File f = new File(caminhoArquivo);
         FileInputStream fis = new FileInputStream(f);
         int bytesArquivo = fis.available();
-        String nomeArquivo = f.getName();
-
+        
         System.out.println("Nome do arquivo : " + f.getName());
         System.out.println("Tamanho arquivo : " + bytesArquivo);
 
-        byte[] nomeArquivoB = nomeArquivo.getBytes();
-        byte[] tamanhoNomeArquivoB = ByteBuffer.allocate(4).putInt(nomeArquivo.length()).array();
+        
         byte[] bufferArquivo = new byte[bytesArquivo];
         
         byte[] ArquivoB = Arrays.copyOfRange(bufferArquivo, 0, bytesArquivo);
-        ByteBuffer bb = ByteBuffer.allocate(4 + nomeArquivoB.length + ArquivoB.length);
-        bb.put(tamanhoNomeArquivoB);
-        bb.put(nomeArquivoB);
+        ByteBuffer bb = ByteBuffer.allocate(ArquivoB.length);
+        
         bb.put(ArquivoB);
         
         return bb.array();
@@ -75,13 +86,7 @@ public class Cliente {
             data[i] = sendData[i];
         }
         
-        //ByteBuffer bufferPacote; //4 bytes pro numero de sequencia + tamanho do pacote
-        //bufferPacote = ByteBuffer.allocateDirect(4 + sendData.length);
-        //os 4 primeiros bytes do pacote definirão o numero de sequencia
-        //bufferPacote.put(sendData);  //insere os bytes do numero de sequencia no buffer
-        //bufferPacote.put(nSeqBytes); //insere dados no buffer
-        
-        DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, portaServidor);
+        DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, PORTASERVIDOR);
         return p;
     }
     
@@ -109,8 +114,8 @@ public class Cliente {
         int bytesRestantes = bufferArquivo.length;
         while (bytesLidos < bufferArquivo.length) {
 
-            byte[] data = new byte[tamanhoPacote];
-            for (int i = 0; i < tamanhoPacote; i++) {
+            byte[] data = new byte[TAMANHOPACOTE];
+            for (int i = 0; i < TAMANHOPACOTE; i++) {
                 data[i] = bufferArquivo[i];
                 bytesLidos++;
                 bytesRestantes--;
@@ -126,7 +131,8 @@ public class Cliente {
             Cliente.setSoTimeout(timeoutTime);
             Cliente.send(cliente.preparaPacote(IPAddress, nSeq, data));
             System.out.println("pacote " + nSeq + " enviado");
-            nSeq = bytesLidos; 
+            nSeq = bytesLidos;
+            recebeAck();
         }
         Cliente.close();
     }
