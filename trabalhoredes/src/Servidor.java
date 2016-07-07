@@ -26,7 +26,7 @@ public class Servidor {
     public static void enviaAck(int ack, InetAddress IPAddress) throws IOException {
         byte[] ackBytes = ByteBuffer.allocate(4).putInt(ack).array();
 
-        DatagramPacket p = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, PORTASERVIDOR);
+        DatagramPacket p = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, 8001);
         try {
             DatagramSocket s = new DatagramSocket();
             s.send(p);
@@ -34,7 +34,7 @@ public class Servidor {
             e1.printStackTrace();
         }
 
-        System.out.println("Servidor -> ACK " + ack + " enviado");
+        System.out.println("ACK " + ack + " enviado");
     }
 
     public static void main(String args[]) throws UnknownHostException, SocketException, IOException {
@@ -44,22 +44,25 @@ public class Servidor {
         int nSeqEsperado = 0;
         FileOutputStream fos = null;
         byte[] data = new byte[TAMANHOPACOTE];
+        DatagramSocket s = new DatagramSocket(PORTASERVIDOR);
+        DatagramSocket sk1 = new DatagramSocket();
 
         while (true) {
-            DatagramSocket s = new DatagramSocket(PORTASERVIDOR);
+            
+            
             DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, PORTASERVIDOR);
 
             s.receive(p);
 
             data = p.getData();
             int nSeq = ByteBuffer.wrap(data, 0, 4).getInt();
-            System.out.println("pacote " + nSeq + " recebido");
+            
 
-            if (nSeqEsperado == nSeq) {
+            
 
                 // primeiro pacote
                 if ((ultimoNSeq == -1) && (nSeqEsperado == 0)) {
-
+                    
                     Scanner input = new Scanner(System.in);
                     System.out.println("Insira onde deseja salvar o arquivo");
                     String caminhoArquivo = input.nextLine();
@@ -71,12 +74,13 @@ public class Servidor {
                     System.out.println("Insira o nome do arquivo a ser criado ..");
                     String nomeArquivo = input.nextLine();
                     //System.out.println("Servidor -> Nome do arquivo : " + nomeArquivo);
-
+                    
                     File f = new File(caminhoArquivo + nomeArquivo);
                     if (!f.exists()) {
                         f.createNewFile();
                     }
-
+                    
+                    System.out.println("pacote " + nSeq + " recebido");
                     //dados iniciais
                     fos = new FileOutputStream(f);
                     
@@ -84,15 +88,30 @@ public class Servidor {
 
                     ultimoNSeq = nSeq;
                     nSeqEsperado += p.getLength();
-                    enviaAck(nSeq + nSeqEsperado, IPAddress);
+                    //enviaAck(nSeq + nSeqEsperado, IPAddress);
+                    byte[] ackBytes = ByteBuffer.allocate(4).putInt(nSeq + nSeqEsperado).array();
+
+                    DatagramPacket ACK = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, 8001);
+                    sk1.send(ACK);
+                    System.out.println("ACK " + (nSeq + nSeqEsperado) + " enviado");
+                    ackBytes = null;
                 } else {
+                    
+                    System.out.println("pacote " + nSeq + " recebido");
                     fos.write(data);
                     ultimoNSeq = nSeq;
                     nSeqEsperado += p.getLength();
-                    enviaAck(nSeq + nSeqEsperado, IPAddress);
+                    //enviaAck(nSeq + nSeqEsperado, IPAddress);
+                    
+                    byte[] ackBytes = ByteBuffer.allocate(4).putInt(nSeq + nSeqEsperado).array();
+
+                    DatagramPacket ACK = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, PORTASERVIDOR);
+                    s.send(ACK);
+                    System.out.println("ACK " + (nSeqEsperado) + " enviado");
+                    ackBytes = null;
                 }
-            }
-            s.close();
+            
+            //s.close();
         }
         
     }

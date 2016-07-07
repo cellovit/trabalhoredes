@@ -1,5 +1,4 @@
 
-
 import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
@@ -18,16 +17,14 @@ public class Cliente {
     int nSeqAtual = 0;
     boolean ultimoNseq = false;
     Timer timer;
-    
-    
 
     public Cliente() {
     }
-    
-    public static void recebeAck () throws SocketException, UnknownHostException, IOException{
+
+    public static void recebeAck() throws SocketException, UnknownHostException, IOException {
         InetAddress IPAddress = InetAddress.getLocalHost();
         byte[] data = new byte[TAMANHOPACOTE];
-        
+
         DatagramSocket s = new DatagramSocket();
         DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, PORTASERVIDOR);
 
@@ -35,33 +32,32 @@ public class Cliente {
 
         data = p.getData();
         int ACK = ByteBuffer.wrap(data, 0, 4).getInt();
-        
+
         System.out.println("ACK " + ACK + " recebido");
-        
+
     }
-    
+
     //public FileOutputStream preparaArquivo2(String caminhoArquivo){
     public byte[] preparaArquivo(String caminhoArquivo) throws IOException {
 
         File f = new File(caminhoArquivo);
         FileInputStream fis = new FileInputStream(f);
         int bytesArquivo = fis.available();
-        
+
         System.out.println("Nome do arquivo : " + f.getName());
         System.out.println("Tamanho arquivo : " + bytesArquivo);
 
-        
         byte[] bufferArquivo = new byte[bytesArquivo];
-        
+
         byte[] ArquivoB = Arrays.copyOfRange(bufferArquivo, 0, bytesArquivo);
         ByteBuffer bb = ByteBuffer.allocate(ArquivoB.length);
-        
+
         bb.put(ArquivoB);
-        
+
         return bb.array();
 
     }
-    
+
     public int getnSeqAtual() {
         return nSeqAtual;
     }
@@ -70,26 +66,26 @@ public class Cliente {
         this.nSeqAtual = nSeqAtual;
     }
 
-    public DatagramPacket preparaPacote( InetAddress IPAddress, int nSeq, byte[] sendData) throws SocketException, IOException {
-        
+    public DatagramPacket preparaPacote(InetAddress IPAddress, int nSeq, byte[] sendData) throws SocketException, IOException {
+
         byte[] nSeqBytes = ByteBuffer.allocate(4).putInt(nSeq).array();
         byte[] sendDataArray = ByteBuffer.allocate(sendData.length).put(sendData).array();
         byte[] data = new byte[nSeqBytes.length + sendDataArray.length];
-        
+
         //insere as informações do numero de sequencia
-        for (int i = 0; i < nSeqBytes.length; i++){
+        for (int i = 0; i < nSeqBytes.length; i++) {
             data[i] = nSeqBytes[i];
         }
-        
+
         //insere os dados
-        for (int i = nSeqBytes.length; i < sendDataArray.length; i++){
+        for (int i = nSeqBytes.length; i < sendDataArray.length; i++) {
             data[i] = sendData[i];
         }
-        
+
         DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, PORTASERVIDOR);
         return p;
     }
-    
+
     public static void main(String args[]) throws Exception {
 
         ArrayList<DatagramPacket> listaPacotes = new ArrayList<DatagramPacket>();
@@ -99,7 +95,7 @@ public class Cliente {
         int tamanhoJanela = 10;
         int nSeq = 0;
         int bytesLidos = 0;
-        
+
         Cliente cliente = new Cliente();
         Scanner input = new Scanner(System.in);
         InetAddress IPAddress = InetAddress.getLocalHost();
@@ -108,9 +104,10 @@ public class Cliente {
         String caminhoArquivoUpload = input.nextLine();
         byte[] bufferArquivo = cliente.preparaArquivo(caminhoArquivoUpload);
         System.out.println("tamanho do Arquivo + informações : " + bufferArquivo.length);
-        
+
         DatagramSocket Cliente = new DatagramSocket();
-        
+        DatagramSocket sk1 = new DatagramSocket(8001);
+
         int bytesRestantes = bufferArquivo.length;
         while (bytesLidos < bufferArquivo.length) {
 
@@ -126,14 +123,25 @@ public class Cliente {
 
             System.out.println("bytes lidos : " + bytesLidos);
             System.out.println("bytes restantes : " + bytesRestantes);
-            //????? o numero de sequencia atual deve ser o numero de bytes lidos ?
-
-            Cliente.setSoTimeout(timeoutTime);
+            
+            
             Cliente.send(cliente.preparaPacote(IPAddress, nSeq, data));
             System.out.println("pacote " + nSeq + " enviado");
             nSeq = bytesLidos;
-            recebeAck();
+            
+            //recebeAck();
+            
+            
+            byte[] ackBytes = ByteBuffer.allocate(4).putInt(nSeq).array();
+            DatagramPacket ACK = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, 8001);
+            System.out.println("esperando ACK");
+            sk1.receive(ACK);
+            
+            int numeroACK = ByteBuffer.wrap(ackBytes, 0, 4).getInt();
+            
+            System.out.println("ACK " + numeroACK + " recebido");
+            
         }
-        Cliente.close();
+        //Cliente.close();
     }
 }
