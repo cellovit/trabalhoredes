@@ -11,9 +11,9 @@ import java.util.TimerTask;
 public class Cliente {
 
     static final int PORTASERVIDOR = 8002;
-    static final int timeoutTime = 200;
+    static final int TIMEOUTTIME = 200;
     static final int TAMANHOPACOTE = 1000;
-    static final int tamanhoJanela = 5;
+    static final int TAMANHOJANELA = 5;
     int nSeqAtual = 0;
     boolean ultimoNseq = false;
     Timer timer;
@@ -73,7 +73,7 @@ public class Cliente {
         byte[] data = new byte[nSeqBytes.length + sendDataArray.length];
 
         //insere as informações do numero de sequencia
-        for (int i = 0; i < nSeqBytes.length; i++) {
+        for (int i = 0; i < 4; i++) {
             data[i] = nSeqBytes[i];
         }
 
@@ -88,11 +88,11 @@ public class Cliente {
 
     public static void main(String args[]) throws Exception {
 
-        ArrayList<DatagramPacket> listaPacotes = new ArrayList<DatagramPacket>();
-        int nSeqAtual = 0;
-        boolean transferenciaCompleta = false;
+        //ArrayList<DatagramPacket> listaPacotes = new ArrayList<DatagramPacket>();
+        //int nSeqAtual = 0;
+        
         //int ssthresh = 16;
-        int tamanhoJanela = 10;
+        
         int nSeq = 0;
         int bytesLidos = 0;
 
@@ -110,7 +110,9 @@ public class Cliente {
 
         int bytesRestantes = bufferArquivo.length;
         while (bytesLidos < bufferArquivo.length) {
-
+            
+            //if (bytesRestantes <= TAMANHOPACOTE)  // ULTIMO PACOTE 
+            
             byte[] data = new byte[TAMANHOPACOTE];
             for (int i = 0; i < TAMANHOPACOTE; i++) {
                 data[i] = bufferArquivo[i];
@@ -124,13 +126,9 @@ public class Cliente {
             System.out.println("bytes lidos : " + bytesLidos);
             System.out.println("bytes restantes : " + bytesRestantes);
             
-            
             Cliente.send(cliente.preparaPacote(IPAddress, nSeq, data));
             System.out.println("pacote " + nSeq + " enviado");
             nSeq = bytesLidos;
-            
-            //recebeAck();
-            
             
             byte[] ackBytes = ByteBuffer.allocate(4).putInt(nSeq).array();
             DatagramPacket ACK = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, 8001);
@@ -142,6 +140,6 @@ public class Cliente {
             System.out.println("ACK " + numeroACK + " recebido");
             
         }
-        //Cliente.close();
+        Cliente.close();
     }
 }
