@@ -11,23 +11,71 @@ import java.util.TimerTask;
 public class Cliente {
 
     static final int PORTASERVIDOR = 8002;
-    static final int TIMEOUTTIME = 200;
+    static final int TIMEOUTTIME = 1000;
     static final int TAMANHOPACOTE = 1000;
-    static final int TAMANHOJANELA = 5;
-    int nSeqAtual = 0;
-    boolean ultimoNseq = false;
-    Timer timer;
+    int nSeq;
+    int ACKesperado;
 
-    public Cliente() {
+    public Cliente(int nSeq, int ACKesperado) {
+        this.nSeq = nSeq;
+        this.ACKesperado = ACKesperado;
+    }
+
+    public static boolean recebeACK2(DatagramSocket ClienteSocket, DatagramSocket sk1, byte[] bufferArquivo, byte[] data, int bytesLidos, int bytesRestantes, int nSeq, int ACKesperado) throws SocketException, IOException {
+
+        Cliente c = new Cliente(nSeq, ACKesperado);
+        InetAddress IPAddress = InetAddress.getByName("127.0.0.1");
+        boolean ACKrecebido = false;
+
+        byte[] ackBytes = ByteBuffer.allocate(4).putInt(nSeq).array();
+
+        DatagramPacket ACK = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, 8001);
+        System.out.println("esperando ACK");
+
+        try {
+            sk1.setSoTimeout(TIMEOUTTIME);
+            sk1.receive(ACK);
+        } catch (SocketTimeoutException e) { //retransmite se acusar exceção de timeout
+            System.out.println("RETRANSMITINDO PACOTE POR TIMEOUT");
+            return false;
+
+        }
+
+        int numeroACK = ByteBuffer.wrap(ackBytes, 0, 4).getInt();
+        System.out.println("ACK " + numeroACK + " recebido");
+        if (numeroACK != ACKesperado) {
+            System.out.println("ACK contém numero de sequencia não esperado, RETRANSMITIR pacote");
+
+            if (bytesLidos == 1000) {
+                ClienteSocket.send(c.preparaPacote(IPAddress, nSeq, data));
+                System.out.println("retransmitindo primeiro pacote " + nSeq + " enviado");
+                ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, data, bytesLidos, bytesRestantes, nSeq, ACKesperado);
+
+            } else if (bytesLidos > 1000) {
+
+                ClienteSocket.send(c.preparaPacote(IPAddress, nSeq, data));
+                System.out.println("retransmitindo pacote " + nSeq + " enviado");
+                ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, data, bytesLidos, bytesRestantes, nSeq, ACKesperado);
+            } else if (bytesLidos > 1000 && bytesRestantes <= 1000) {
+                byte[] ultimoPacote = new byte[1];
+
+                ClienteSocket.send(c.preparaPacote(IPAddress, nSeq, ultimoPacote));
+                System.out.println("retransmitindo ultimo pacote " + nSeq + " enviado");
+                ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, data, bytesLidos, bytesRestantes, nSeq, ACKesperado);
+            }
+        } else {
+            ACKrecebido = true;
+        }
+        return ACKrecebido;
     }
 
     public static void recebeAck() throws SocketException, UnknownHostException, IOException {
-        InetAddress IPAddress = InetAddress.getLocalHost();
+
         byte[] data = new byte[TAMANHOPACOTE];
 
         DatagramSocket s = new DatagramSocket();
-        DatagramPacket p = new DatagramPacket(data, data.length, IPAddress, PORTASERVIDOR);
-
+        DatagramPacket p = new DatagramPacket(data, data.length, s.getLocalAddress(), PORTASERVIDOR);
+        s.setSoTimeout(TIMEOUTTIME);
         s.receive(p);
 
         data = p.getData();
@@ -38,7 +86,7 @@ public class Cliente {
     }
 
     //public FileOutputStream preparaArquivo2(String caminhoArquivo){
-    public byte[] preparaArquivo(String caminhoArquivo) throws IOException {
+    /*public byte[] preparaArquivo(String caminhoArquivo) throws IOException {
 
         File f = new File(caminhoArquivo);
         FileInputStream fis = new FileInputStream(f);
@@ -56,29 +104,39 @@ public class Cliente {
 
         return bb.array();
 
+    }*/
+    public byte[] preparaArquivo2(String caminhoArquivo) throws IOException {
+
+        File f = new File(caminhoArquivo);
+        System.out.println("Nome do arquivo : " + f.getName());
+        System.out.println("Tamanho arquivo : " + f.length());
+
+        byte[] bufferArquivo = new byte[(int) f.length()];
+
+        FileInputStream fis = new FileInputStream(f);
+        fis.read(bufferArquivo);
+        fis.close();
+
+        return bufferArquivo;
     }
 
-    public int getnSeqAtual() {
-        return nSeqAtual;
-    }
-
-    public void setnSeqAtual(int nSeqAtual) {
-        this.nSeqAtual = nSeqAtual;
-    }
+    
 
     public DatagramPacket preparaPacote(InetAddress IPAddress, int nSeq, byte[] sendData) throws SocketException, IOException {
 
         byte[] nSeqBytes = ByteBuffer.allocate(4).putInt(nSeq).array();
+
         byte[] sendDataArray = ByteBuffer.allocate(sendData.length).put(sendData).array();
+
         byte[] data = new byte[nSeqBytes.length + sendDataArray.length];
 
         //insere as informações do numero de sequencia
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < (nSeqBytes.length); i++) {
             data[i] = nSeqBytes[i];
         }
 
         //insere os dados
-        for (int i = nSeqBytes.length; i < sendDataArray.length; i++) {
+        for (int i = nSeqBytes.length; i < (sendDataArray.length); i++) {
             data[i] = sendData[i];
         }
 
@@ -88,58 +146,78 @@ public class Cliente {
 
     public static void main(String args[]) throws Exception {
 
-        //ArrayList<DatagramPacket> listaPacotes = new ArrayList<DatagramPacket>();
-        //int nSeqAtual = 0;
-        
-        //int ssthresh = 16;
-        
         int nSeq = 0;
         int bytesLidos = 0;
-
-        Cliente cliente = new Cliente();
+        int ACKesperado = 1000;
+        boolean ACKrecebido = false;
+        boolean transferenciaCompleta = false;
+        boolean arquivoLido = false;
+        Cliente cliente = new Cliente(nSeq, ACKesperado);
         Scanner input = new Scanner(System.in);
-        InetAddress IPAddress = InetAddress.getLocalHost();
-
         System.out.println("Insira o caminho do arquivo que deseja enviar");
         String caminhoArquivoUpload = input.nextLine();
-        byte[] bufferArquivo = cliente.preparaArquivo(caminhoArquivoUpload);
-        System.out.println("tamanho do Arquivo + informações : " + bufferArquivo.length);
+        byte[] bufferArquivo = cliente.preparaArquivo2(caminhoArquivoUpload);
 
-        DatagramSocket Cliente = new DatagramSocket();
+        DatagramSocket ClienteSocket = new DatagramSocket();
+        InetAddress IPAddress = InetAddress.getByName("127.0.0.1");
         DatagramSocket sk1 = new DatagramSocket(8001);
 
         int bytesRestantes = bufferArquivo.length;
-        while (bytesLidos < bufferArquivo.length) {
-            
-            //if (bytesRestantes <= TAMANHOPACOTE)  // ULTIMO PACOTE 
-            
-            byte[] data = new byte[TAMANHOPACOTE];
-            for (int i = 0; i < TAMANHOPACOTE; i++) {
+        while (bytesLidos < bufferArquivo.length && !transferenciaCompleta) {
+            ACKrecebido = false;
+            int tPacote = 0;
+
+            if (bytesRestantes > 1000) {
+                tPacote = TAMANHOPACOTE;
+            } else {
+                tPacote = bytesRestantes;
+            }
+            byte[] data = new byte[tPacote];
+
+            for (int i = 0; i < tPacote; i++) {
                 data[i] = bufferArquivo[i];
                 bytesLidos++;
                 bytesRestantes--;
-                if (bytesRestantes == 0) {
-                    break;
-                }
             }
 
             System.out.println("bytes lidos : " + bytesLidos);
             System.out.println("bytes restantes : " + bytesRestantes);
-            
-            Cliente.send(cliente.preparaPacote(IPAddress, nSeq, data));
-            System.out.println("pacote " + nSeq + " enviado");
-            nSeq = bytesLidos;
-            
-            byte[] ackBytes = ByteBuffer.allocate(4).putInt(nSeq).array();
-            DatagramPacket ACK = new DatagramPacket(ackBytes, ackBytes.length, IPAddress, 8001);
-            System.out.println("esperando ACK");
-            sk1.receive(ACK);
-            
-            int numeroACK = ByteBuffer.wrap(ackBytes, 0, 4).getInt();
-            
-            System.out.println("ACK " + numeroACK + " recebido");
-            
+            while (!ACKrecebido) {
+
+                if (bytesLidos == 1000) {
+
+                    ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, data));
+                    System.out.println("primeiro pacote " + nSeq + " enviado");
+                    ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, data, bytesLidos, bytesRestantes, nSeq, ACKesperado);
+                    if (ACKrecebido) {
+                        nSeq = bytesLidos;
+                    }
+
+                } else if (bytesLidos > 1000) {
+
+                    ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, data));
+                    System.out.println("pacote " + nSeq + " enviado");
+                    ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, data, bytesLidos, bytesRestantes, nSeq, ACKesperado);
+                    if (ACKrecebido) {
+                        nSeq = bytesLidos;
+                    }
+                } else if (arquivoLido) {
+                    byte[] ultimoPacote = new byte[1]; //envia pacote com o dobro do tamanho para sinalizar ultimo pacote
+
+                    ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, ultimoPacote));
+                    System.out.println("ULTIMO pacote " + nSeq + " enviado");
+                    ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, data, bytesLidos, bytesRestantes, nSeq, ACKesperado);
+                    if (ACKrecebido) {
+                        nSeq = bytesLidos;
+                        transferenciaCompleta = true;
+                        sk1.close();
+                        ClienteSocket.close();
+                        break;
+                    }
+                }
+            }
+            ACKesperado += TAMANHOPACOTE;
         }
-        Cliente.close();
+        ClienteSocket.close();
     }
 }
