@@ -213,11 +213,12 @@ public class Cliente {
                     ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, data, bytesLidos, bytesRestantes, nSeq, ACKesperado);
                     if (ACKrecebido) {
                         nSeq = bytesLidos;
+                        System.out.println("TRANSFERENCIA COMPLETA \n");
                         transferenciaCompleta = true;
                         sk1.close();
                         ClienteSocket.close();
-                        System.out.println("TRANSFERENCIA COMPLETA \n");
-                        transferenciaCompleta = true;
+                        
+                        
                         break;
                     }
                 } 
