@@ -42,7 +42,7 @@ public class Cliente {
         }
 
         int numeroACK = ByteBuffer.wrap(ackBytes, 0, 4).getInt();
-        System.out.println("ACK " + numeroACK + " recebido");
+        System.out.println("ACK " + numeroACK + " recebido \n");
         if (numeroACK != ACKesperado) {
             System.out.println("ACK contém numero de sequencia não esperado, RETRANSMITIR pacote");
 
@@ -150,8 +150,9 @@ public class Cliente {
         int bytesLidos = 0;
         int ACKesperado = 1000;
         boolean ACKrecebido = false;
+        boolean primeiroPacoteEnviado = false;
         boolean transferenciaCompleta = false;
-        boolean arquivoLido = false;
+        boolean ultimo = false;
         Cliente cliente = new Cliente(nSeq, ACKesperado);
         Scanner input = new Scanner(System.in);
         System.out.println("Insira o caminho do arquivo que deseja enviar");
@@ -167,7 +168,7 @@ public class Cliente {
             ACKrecebido = false;
             int tPacote = 0;
 
-            if (bytesRestantes > 1000) {
+            if (bytesRestantes >= 1000) {
                 tPacote = TAMANHOPACOTE;
             } else {
                 tPacote = bytesRestantes;
@@ -182,18 +183,9 @@ public class Cliente {
 
             System.out.println("bytes lidos : " + bytesLidos);
             System.out.println("bytes restantes : " + bytesRestantes);
-            while (!ACKrecebido) {
-
-                if (bytesLidos == 1000) {
-
-                    ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, data));
-                    System.out.println("primeiro pacote " + nSeq + " enviado");
-                    ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, data, bytesLidos, bytesRestantes, nSeq, ACKesperado);
-                    if (ACKrecebido) {
-                        nSeq = bytesLidos;
-                    }
-
-                } else if (bytesLidos > 1000) {
+            while (!ACKrecebido && !transferenciaCompleta) {
+                if (bytesRestantes < 1000){ultimo = true;}
+                if (bytesLidos > 1000 && nSeq >= 1000 && primeiroPacoteEnviado) {
 
                     ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, data));
                     System.out.println("pacote " + nSeq + " enviado");
@@ -201,8 +193,20 @@ public class Cliente {
                     if (ACKrecebido) {
                         nSeq = bytesLidos;
                     }
-                } else if (arquivoLido) {
-                    byte[] ultimoPacote = new byte[1]; //envia pacote com o dobro do tamanho para sinalizar ultimo pacote
+                } 
+                else if (bytesLidos <= 1000) {
+
+                    ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, data));
+                    System.out.println("PRIMEIRO pacote " + nSeq + " enviado");
+                    primeiroPacoteEnviado = true;
+                    //System.out.println("TRANSFERENCIA INICIADA \n");
+                    ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, data, bytesLidos, bytesRestantes, nSeq, ACKesperado);
+                    if (ACKrecebido) {
+                        nSeq = bytesLidos;
+                    }
+                    
+                }else if (ultimo) {
+                    byte[] ultimoPacote = new byte[tPacote];
 
                     ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, ultimoPacote));
                     System.out.println("ULTIMO pacote " + nSeq + " enviado");
@@ -212,12 +216,15 @@ public class Cliente {
                         transferenciaCompleta = true;
                         sk1.close();
                         ClienteSocket.close();
+                        System.out.println("TRANSFERENCIA COMPLETA \n");
+                        transferenciaCompleta = true;
                         break;
                     }
-                }
+                } 
             }
-            ACKesperado += TAMANHOPACOTE;
+            ACKesperado += tPacote;
+            //if (transferenciaCompleta) break;
         }
-        ClienteSocket.close();
+        
     }
 }

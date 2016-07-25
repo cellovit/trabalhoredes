@@ -24,6 +24,7 @@ public class Servidor {
     public static void main(String args[]) throws UnknownHostException, SocketException, IOException {
         
         boolean pacoteCorreto = false;
+        boolean ultimo = false;
         InetAddress IPAddress = InetAddress.getByName("127.0.0.1");
         int ultimoNSeq = -1;
         int nSeqEsperado = 0;
