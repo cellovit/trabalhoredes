@@ -58,6 +58,8 @@ public class Servidor {
 
                 fos.close();
                 s.close();
+                System.out.println("\nTRANSFERENCIA COMPLETA\n");
+                break;
             }else if (ultimoNSeq >= 0 && (ultimoNSeq + p.getLength() == nSeq) ) {
 
                 System.out.println("pacote " + nSeq + " recebido");
