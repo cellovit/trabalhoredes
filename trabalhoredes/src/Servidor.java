@@ -42,7 +42,7 @@ public class Servidor {
             
 
             //verifica se é o ULTIMO pacote
-            if (p.getLength() < 1000 && (ultimoNSeq + p.getLength() == nSeq)) {
+            if (p.getLength() < 1000) {
                 System.out.println("ULTIMO pacote recebido");
                 fos.write(data);
                 ultimoNSeq = nSeq;
