@@ -132,7 +132,7 @@ public class Cliente {
             ACKrecebido = false;
             int tPacote = 0;
 
-            if (bytesRestantes >= 1000) {
+            if (bytesRestantes >= 1000 ) {
                 tPacote = TAMANHOPACOTE;
             } else {
                 tPacote = bytesRestantes;
@@ -144,12 +144,25 @@ public class Cliente {
                 bytesLidos++;
                 bytesRestantes--;
             }
-
+            if (tPacote < TAMANHOPACOTE){ultimo = true;}
             System.out.println("bytes lidos : " + bytesLidos);
             System.out.println("bytes restantes : " + bytesRestantes);
             while (!ACKrecebido && !transferenciaCompleta) {
-                if (bytesRestantes < 1000){ultimo = true;}
-                if (bytesLidos > 1000 && nSeq > 0 && !primeiroPacote) {
+                if (ultimo) {
+                    byte[] ultimoPacote = new byte[tPacote];
+
+                    ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, ultimoPacote));
+                    System.out.println("ULTIMO pacote " + nSeq + " enviado");
+                    ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, ultimoPacote, bytesLidos, bytesRestantes, nSeq, ACKesperado);
+                    if (ACKrecebido) {
+                        nSeq = bytesLidos;
+                        System.out.println("TRANSFERENCIA COMPLETA \n");
+                        transferenciaCompleta = true;
+                        sk1.close();
+                        ClienteSocket.close();
+                        break;
+                    }
+                }else if (bytesLidos > 1000 && nSeq > 0 && !primeiroPacote) {
 
                     ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, data));
                     System.out.println("pacote " + nSeq + " enviado");
@@ -157,6 +170,7 @@ public class Cliente {
                     if (ACKrecebido) {
                         nSeq = bytesLidos;
                     }
+                    
                 } 
                 else if (bytesLidos <= 1000 && nSeq == 0) {
 
@@ -169,23 +183,7 @@ public class Cliente {
                         nSeq = bytesLidos;
                     }
                     
-                }else if (ultimo) {
-                    byte[] ultimoPacote = new byte[tPacote];
-
-                    ClienteSocket.send(cliente.preparaPacote(IPAddress, nSeq, ultimoPacote));
-                    System.out.println("ULTIMO pacote " + nSeq + " enviado");
-                    ACKrecebido = recebeACK2(ClienteSocket, sk1, bufferArquivo, ultimoPacote, bytesLidos, bytesRestantes, nSeq, ACKesperado);
-                    if (ACKrecebido) {
-                        nSeq = bytesLidos;
-                        System.out.println("TRANSFERENCIA COMPLETA \n");
-                        transferenciaCompleta = true;
-                        sk1.close();
-                        ClienteSocket.close();
-                        
-                        
-                        break;
-                    }
-                } 
+                }
             }
             ACKesperado += tPacote;
             //if (transferenciaCompleta) break;

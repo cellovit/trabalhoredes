@@ -44,7 +44,8 @@ public class Servidor {
             //verifica se é o ULTIMO pacote
             if (p.getLength() < 1000) {
                 System.out.println("ULTIMO pacote recebido");
-                fos.write(data);
+                fos.write(data, 4, data.length - 4);
+                //fos.write(data);
                 ultimoNSeq = nSeq;
 
                 data = null;
@@ -55,7 +56,7 @@ public class Servidor {
                 ACKenviado = true;
                 System.out.println("ACK " + (nSeq) + " enviado");
                 ackBytes = null;
-
+                fos.flush();
                 fos.close();
                 s.close();
                 System.out.println("\nTRANSFERENCIA COMPLETA\n");
@@ -63,7 +64,8 @@ public class Servidor {
             }else if (ultimoNSeq >= 0 && (ultimoNSeq + p.getLength() == nSeq) ) {
 
                 System.out.println("pacote " + nSeq + " recebido");
-                fos.write(data);
+                fos.write(data, 4, data.length - 4);
+                //fos.write(data);
                 ultimoNSeq = nSeq;
 
                 data = null;
@@ -102,7 +104,7 @@ public class Servidor {
 
                 fos = new FileOutputStream(f);
 
-                fos.write(data, 4, p.getLength() - 4);
+                fos.write(data, 4, data.length - 4);
                 data = null;
                 ultimoNSeq = nSeq;
 
